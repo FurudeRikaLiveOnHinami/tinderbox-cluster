@@ -17,15 +17,15 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: gentoo-ci; Type: DATABASE; Schema: -; Owner: buildbot
+-- Name: gentoo_riscv_ci; Type: DATABASE; Schema: -; Owner: buildbot
 --
 
-CREATE DATABASE "gentoo-ci" WITH TEMPLATE = template0 ENCODING = 'UTF8' LOCALE = 'en_US.utf8';
+CREATE DATABASE "gentoo_riscv_ci" WITH TEMPLATE = template0 ENCODING = 'UTF8' LOCALE = 'en_US.utf8';
 
 
-ALTER DATABASE "gentoo-ci" OWNER TO buildbot;
+ALTER DATABASE "gentoo_riscv_ci" OWNER TO buildbot;
 
-\connect -reuse-previous=on "dbname='gentoo-ci'"
+\connect -reuse-previous=on "dbname='gentoo_riscv_ci'"
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
