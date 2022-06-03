@@ -34,7 +34,7 @@ def ircGenerators():
 #FIXME:
 # server, nick channel should be set in config
 irc_reporter = irc.IRCStatusPush("irc.libera.chat", "gci_test",
-                 channels=[{"channel": "#gentoo-ci"},
+                 channels=[{"channel": "#furuderika"},
                         ],
                  generators=ircGenerators(),
                  noticeOnChannel=True
