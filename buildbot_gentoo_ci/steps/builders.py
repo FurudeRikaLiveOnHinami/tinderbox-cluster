@@ -385,7 +385,8 @@ class RunEmerge(BuildStep):
         self.descriptionSuffix = self.step
         self.name = 'Setup emerge for ' + self.step + ' step'
         self.build_env = {}
-        self.build_timeout = 0
+        #FIXME: Set build timeout in config
+        self.build_timeout = 1800
 
     @defer.inlineCallbacks
     def run(self):
@@ -398,8 +399,6 @@ class RunEmerge(BuildStep):
                     '-v'
                     ]
         aftersteps_list = []
-        #FIXME: Set build timeout in config
-        self.build_timeout = 6600
         # set env
         # https://bugs.gentoo.org/683118
         # export TERM=linux
