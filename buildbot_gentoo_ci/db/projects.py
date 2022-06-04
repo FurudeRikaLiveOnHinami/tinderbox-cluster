@@ -220,7 +220,6 @@ class ProjectsConnectorComponent(base.DBConnectorComponent):
             profile=row.profile,
             profile_repository_uuid=row.profile_repository_uuid,
             keyword_id=row.keyword_id,
-            image=row.image,
             status=row.status,
             auto=row.auto,
             enabled=row.enabled,

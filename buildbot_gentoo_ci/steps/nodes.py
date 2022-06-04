@@ -42,9 +42,7 @@ class SetupPropertys(BuildStep):
         self.setProperty('project_data', project_data, 'project_data')
         #FIXME: set it in db node config
         self.workerbase = yield os.path.join('/', 'srv', 'gentoo', 'stage4')
-        self.workerdest = yield os.path.join(self.workerbase, self.getProperty('project_uuid'))
         self.setProperty('workerbase', self.workerbase, 'workerbase')
-        self.setProperty('workerdest', self.workerdest, 'workerdest')
         self.setProperty('stage3', 'image', 'stage3')
         # we only support docker for now
         self.setProperty('type', 'docker', 'type')
@@ -99,7 +97,7 @@ class SetupStage4Steps(BuildStep):
                 aftersteps_list.append(
                     steps.StringDownload(locale_conf_string + separator,
                                 workerdest="locale.gen",
-                                workdir=self.getProperty("workerdest") + '/etc'
+                                workdir=workerdest_etc
                                 ))
                 yield log.addStdout('File: ' + 'locale.gen' + '\n')
                 for line in locale_conf:
@@ -107,7 +105,7 @@ class SetupStage4Steps(BuildStep):
                 aftersteps_list.append(
                     steps.StringDownload('LANG="en_US.utf8"' + separator,
                                 workerdest="locale.conf",
-                                workdir=self.getProperty("workerdest") + '/etc'
+                                workdir=workerdest_etc
                                 ))
                 yield log.addStdout('Setting LANG to: ' + 'en_US.utf8' + '\n')
                 aftersteps_list.append(SetSystemdNspawnConf())
@@ -119,13 +117,16 @@ class SetupStage4Steps(BuildStep):
                     workdir=self.getProperty("workerbase")
                     ))
                 # update timezone
-                # add the world file
-                package_list_string = separator.join(package_list)
-                aftersteps_list.append(
-                    steps.StringDownload(package_list_string + separator,
-                                workerdest="var/lib/portage/world",
-                                workdir=self.getProperty("workerdest")
-                                ))
+                # install packages in world file config
+                command_list = ['systemd-nspawn', '-D', self.getProperty('project_uuid'), 'emerge']
+                for package in package_list:
+                    command_list.append(package)
+                aftersteps_list.append(steps.ShellCommand(
+                    flunkOnFailure=True,
+                    name='Install programs on the chroot',
+                    command=command_list,
+                    workdir=self.getProperty("workerbase")
+                    ))
                 # update container
                 aftersteps_list.append(steps.ShellCommand(
                     flunkOnFailure=True,
@@ -140,6 +141,25 @@ class SetupStage4Steps(BuildStep):
                     command=['systemd-nspawn', '-D', self.getProperty('project_uuid'), 'emerge', 'buildbot-worker'],
                     workdir=self.getProperty("workerbase")
                     ))
+                #FIXME: move this to image build for chroot type part
+                if self.getProperty("type") == 'chroot':
+                    # set hostname
+                    aftersteps_list.append(steps.StringDownload(
+                        self.getProperty("worker") + separator,
+                        workerdest="hostname",
+                        workdir=workerdest_etc
+                    ))
+                    yield log.addStdout('Setting hostname to: ' + self.getProperty("worker") + '\n')
+                    # config buildbot-worker
+                    # get password from db if set else generate one in uuid
+                    worker_passwd = 'test1234'
+                    aftersteps_list.append(steps.ShellCommand(
+                        flunkOnFailure=True,
+                        SecretString=[worker_passwd, '<WorkerPassword>'],
+                        name='Install buildbot worker on the chroot',
+                        command=['systemd-nspawn', '-D', self.getProperty('project_uuid'), 'buildbot-worker', 'create-worker', '/var/lib/buildbot_worker', '192.168.1.5', self.getProperty("worker"), worker_passwd],
+                        workdir=self.getProperty("workerbase")
+                    ))
                 if self.getProperty("type") == 'docker':
                     # copy docker_buildbot.tac to worker dir
                     buildbot_worker_config_file = yield os.path.join(self.master.basedir, 'files', 'docker_buildbot_worker.tac')
@@ -148,12 +168,13 @@ class SetupStage4Steps(BuildStep):
                         name='Upload buildbot worker config to the stage4',
                         mastersrc=buildbot_worker_config_file,
                         workerdest='var/lib/buildbot_worker/buildbot.tac',
-                        workdir=self.getProperty("workerdest")
+                        workdir=workerdest
                     ))
                 # add info to the buildbot worker
                 worker_info_list = []
                 worker_info_list.append(self.getProperty('project_data')['name'])
                 worker_info_list.append(self.getProperty("stage3"))
+                worker_info_list.append(self.getProperty("type"))
                 #FIXME: worker name of self.getProperty('workername') from node table
                 worker_info_list.append('node1')
                 print(worker_info_list)
@@ -161,9 +182,10 @@ class SetupStage4Steps(BuildStep):
                 aftersteps_list.append(steps.StringDownload(
                     worker_info + separator,
                     workerdest='var/lib/buildbot_worker/info/host',
-                    workdir=self.getProperty("workerdest")
+                    workdir=workerdest
                 ))
-                #FIXME: add admin info
+                    # if self.getProperty("type") == 'chroot' and 'systemd' in self.getProperty('project_data')['image']:
+                    # set buildbot worker to run
                 # depclean
                 aftersteps_list.append(steps.ShellCommand(
                     flunkOnFailure=True,
@@ -172,18 +194,12 @@ class SetupStage4Steps(BuildStep):
                     workdir=self.getProperty("workerbase")
                     ))
                 # remove the gentoo repo
-                aftersteps_list.append(steps.ShellCommand(
-                    flunkOnFailure=True,
-                    name='Remove the repo dir',
-                    command=['rm', '-R', self.getProperty('project_uuid') + '/var/db/repos/gentoo'],
-                    workdir=self.getProperty("workerbase")
-                ))
                 # compress it
                 aftersteps_list.append(steps.ShellCommand(
                     flunkOnFailure=True,
                     name='Compress the stage4',
-                    command=['tar', '-cf', '../stage4-' + self.getProperty('project_uuid') + '.tar', '.'],
-                    workdir=self.getProperty("workerbase") + '/' + self.getProperty('project_uuid')
+                    command=['tar', '-cf', '--numeric-owner', self.getProperty('project_uuid') + '.tar', self.getProperty('project_uuid')],
+                    workdir=self.getProperty("workerbase")
                 ))
                 # signing the stage4
                 # remove the dir
@@ -193,23 +209,6 @@ class SetupStage4Steps(BuildStep):
                     command=['rm', '-R', self.getProperty('project_uuid')],
                     workdir=self.getProperty("workerbase")
                 ))
-                # build docker stage4 image and buildbot-worker image
-                # FIXME: Use the python docker api
-                # FIXME: add date tags
-                if self.getProperty("type") == 'docker':
-                    aftersteps_list.append(steps.ShellCommand(
-                        flunkOnFailure=True,
-                        name='Build docker stage4 image',
-                        command=['docker', 'import', 'stage4-' + self.getProperty('project_uuid') + '.tar', 'stage4-' + self.getProperty('project_uuid') + ':latest'],
-                        workdir=self.getProperty("workerbase")
-                    ))
-                    # gentoo docker buildbot-worker image
-                    aftersteps_list.append(steps.ShellCommand(
-                        flunkOnFailure=True,
-                        name='Build docker buildbot-worker image',
-                        command=['docker', 'buildx', 'build', '--file', '../docker/GentooBuildbotWorker.Docker', '--build-arg', 'PROJECTUUID=' + self.getProperty('project_uuid'), '--tag', 'bb-worker-' +  self.getProperty('project_uuid') + ':latest', '.'],
-                        workdir=self.getProperty("workerbase")
-                    ))
         if aftersteps_list != []:
             yield self.build.addStepsAfterCurrentStep(aftersteps_list)
         return SUCCESS
@@ -306,10 +305,7 @@ class SetSystemdNspawnConf(BuildStep):
         nspawn_conf.append('[Files]')
         nspawn_conf.append('TemporaryFileSystem=/run/lock')
         # db node config portage cache bind
-        src_dir = '/srv/gentoo/portage/' + self.getProperty('project_uuid')
-        dest_dir = '/var/cache/portage'
-        nspawn_conf.append('Bind=' + src_dir + '/distfiles' + ':' + dest_dir + '/distfiles')
-        nspawn_conf.append('Bind=' + src_dir + '/packages' + ':' + dest_dir + '/packages')
+        nspawn_conf.append('Bind=/srv/gentoo/portage/' + self.getProperty('project_uuid') + ':/var/cache/portage')
         nspawn_conf.append('[Exec]')
         nspawn_conf.append('Capability=CAP_NET_ADMIN')
         nspawn_conf.append('[Network]')
