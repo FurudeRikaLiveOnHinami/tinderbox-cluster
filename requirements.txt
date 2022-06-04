@@ -4,3 +4,5 @@ pygit2==1.9.2
 psycopg2==2.9.3
 sqlalchemy-migrate==0.13.0
 minio==5.0.7
+portage==3.0.30
+requests==2.27.1
