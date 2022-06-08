@@ -236,7 +236,8 @@ class TriggerRunBuildRequest(BuildStep):
                             'projectrepository_data' : self.projectrepository_data,
                             'use_data' : self.use_data,
                             'fullcheck' : self.getProperty("fullcheck"),
-                            'project_build_data' : project_build_data
+                            'project_build_data' : project_build_data,
+                            'project_uuid' : self.project_data['uuid']
                         }
                 )])
         return SUCCESS
