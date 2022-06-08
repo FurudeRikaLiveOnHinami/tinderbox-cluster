@@ -384,6 +384,7 @@ class RunEmerge(BuildStep):
         self.descriptionSuffix = self.step
         self.name = 'Setup emerge for ' + self.step + ' step'
         self.build_env = {}
+        self.build_timeout = 0
 
     @defer.inlineCallbacks
     def run(self):
@@ -396,6 +397,8 @@ class RunEmerge(BuildStep):
                     '-v'
                     ]
         aftersteps_list = []
+        #FIXME: Set build timeout in config
+        self.build_timeout = 6600
         # set env
         # https://bugs.gentoo.org/683118
         # export TERM=linux
@@ -454,7 +457,7 @@ class RunEmerge(BuildStep):
                         strip=True,
                         extract_fn=PersOutputOfEmerge,
                         workdir='/',
-                        timeout=None
+                        timeout=self.build_timeout
                 ))
             aftersteps_list.append(CheckEmergeLogs('update'))
             if projects_emerge_options['preserved_libs']:
@@ -470,7 +473,7 @@ class RunEmerge(BuildStep):
                         strip=True,
                         extract_fn=PersOutputOfEmerge,
                         workdir='/',
-                        timeout=None
+                        timeout=self.build_timeout
                 ))
             aftersteps_list.append(CheckEmergeLogs('preserved-libs'))
             self.setProperty('preserved_libs', False, 'preserved-libs')
@@ -532,7 +535,7 @@ class RunEmerge(BuildStep):
                         strip=True,
                         extract_fn=PersOutputOfEmerge,
                         workdir='/',
-                        timeout=None
+                        timeout=self.build_timeout
                 ))
             aftersteps_list.append(CheckEmergeLogs('match'))
 
@@ -561,7 +564,7 @@ class RunEmerge(BuildStep):
                         strip=True,
                         extract_fn=PersOutputOfEmerge,
                         workdir='/',
-                        timeout=None
+                        timeout=self.build_timeout
                 ))
             aftersteps_list.append(CheckEmergeLogs('pre-build'))
 
@@ -588,7 +591,7 @@ class RunEmerge(BuildStep):
                         extract_fn=PersOutputOfEmerge,
                         workdir='/',
                         env=self.build_env,
-                        timeout=None
+                        timeout=self.build_timeout
                 ))
             aftersteps_list.append(CheckEmergeLogs('build'))
             if projects_emerge_options['preserved_libs']:
