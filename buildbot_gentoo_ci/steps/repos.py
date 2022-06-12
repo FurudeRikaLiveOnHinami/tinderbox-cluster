@@ -104,7 +104,9 @@ class CheckRepository(BuildStep):
     @defer.inlineCallbacks
     def setchmod(self, path):
         for root, dirs, files in os.walk(path):
+            print(root)
             for d in dirs:
+                print(d)
                 yield os.chmod(os.path.join(root, d), 0o0755)
             for f in files:
                 yield os.chmod(os.path.join(root, f), 0o0644)
@@ -144,7 +146,7 @@ class CheckRepository(BuildStep):
             print('repo updated to commit id')
             print(headcommit.hexsha)
         # chmod needed for ebuilds metadata portage.GetAuxMetadata step
-        # yield self.setchmod(repository_path)
+        yield self.setchmod(repository_path)
         return success
 
     @defer.inlineCallbacks
